@@ -14,38 +14,57 @@ namespace NuGetInfo
         static void Main(string[] args)
         {
             var nugetConfig = @"C:\vsmac\nuget.config";
-            var packageSources = ParsePackageSources(nugetConfig).ToArray();
+            var packageSources = ParsePackageSources(nugetConfig)
+                .Where(IncludePackageSource)
+                .ToArray();
             var packageId = "Microsoft.VisualStudio.Utilities";
+            var version = "16.7";
 
+            foreach (var source in packageSources)
+            {
+                var versions = NuGetAPI.GetPackageVersions(source, packageId).Result.Where(v => v.ToString().Contains(version)).ToArray();
+                if (versions.Any())
+                {
+                    Output(source);
+                    foreach (var v in versions)
+                    {
+                        Output(v.ToString());
+                    }
+                }
+            }
+
+            //CallNuGetExe(packageSources, packageId);
+        }
+
+        public static string[] excludeSources = new[]
+        {
+            "nuget.org",
+            "myget",
+            "dotnetfeed.blob.core.windows.net",
+            "ci.appveyor.com"
+        };
+
+        public static bool IncludePackageSource(string packageSource)
+        {
+            foreach (var exclude in excludeSources)
+            {
+                if (packageSource.Contains(exclude, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static void CallNuGetExe(string[] packageSources, string packageId)
+        {
             var nugetExe = @"C:\Dropbox\MS\Tools\NuGet.exe";
 
             var lineBreaks = new char[] { '\r', '\n' };
 
-            var excludeSources = new[]
-            {
-                "nuget.org",
-                "myget",
-                "dotnetfeed.blob.core.windows.net",
-                "ci.appveyor.com"
-            };
-
             foreach (var source in packageSources)
             {
-                bool shouldExclude = false;
-                foreach (var exclude in excludeSources)
-                {
-                    if (source.Contains(exclude, StringComparison.OrdinalIgnoreCase))
-                    {
-                        shouldExclude = true;
-                        break;
-                    }
-                }
-
-                if (shouldExclude)
-                {
-                    continue;
-                }
-
                 string[] lines = GetNuGetOutput(nugetExe, lineBreaks, source, allVersions: false)
                     .Where(l => l.Contains(packageId, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
