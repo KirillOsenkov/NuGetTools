@@ -17,6 +17,34 @@ class NuGetAPI
     {
         try
         {
+            var resource = await GetPackageByIdResource(url);
+            if (resource != null)
+            {
+                return await GetPackageVersions(resource, packageId);
+            }
+        }
+        catch
+        {
+        }
+
+        return Array.Empty<NuGetVersion>();
+    }
+
+    public static async Task<IEnumerable<NuGetVersion>> GetPackageVersions(FindPackageByIdResource resource, string packageId) 
+    {
+        IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
+            packageId,
+            Cache,
+            NullLogger.Instance,
+            CancellationToken.None);
+
+        return versions.ToArray();
+    }
+
+    public static async Task<FindPackageByIdResource> GetPackageByIdResource(string url)
+    {
+        try
+        {
             var packageSource = new PackageSource(url);
             if (url.Contains("devdiv"))
             {
@@ -31,18 +59,11 @@ class NuGetAPI
 
             SourceRepository repository = Repository.Factory.GetCoreV3(packageSource);
             FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
-
-            IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
-                packageId,
-                Cache,
-                NullLogger.Instance,
-                CancellationToken.None);
-
-            return versions.ToArray();
+            return resource;
         }
         catch
         {
-            return Array.Empty<NuGetVersion>();
+            return null;
         }
     }
 }

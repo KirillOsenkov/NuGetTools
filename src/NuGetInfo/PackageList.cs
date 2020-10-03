@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System;
 using Bucket = System.Collections.Generic.HashSet<string>;
+using System.Text;
+using System.Linq;
 
 namespace NuGetInfo
 {
@@ -30,6 +32,8 @@ namespace NuGetInfo
             return packageList;
         }
 
+        public IEnumerable<KeyValuePair<string, Bucket>> Packages => this.packageVersions;
+
         public void Add(string packageId, string version)
         {
             if (!packageVersions.TryGetValue(packageId, out var bucket))
@@ -39,6 +43,50 @@ namespace NuGetInfo
             }
 
             bucket.Add(version);
+        }
+
+        public string SaveToText()
+        {
+            var sb = new StringBuilder();
+
+            foreach (var kvp in this.packageVersions.OrderBy(k => k.Key))
+            {
+                if (kvp.Value.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (var version in kvp.Value.OrderBy(v => v))
+                {
+                    sb.AppendLine($"{kvp.Key} {version}");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        public static PackageList FromText(string text)
+        {
+            var result = new PackageList();
+
+            if (string.IsNullOrEmpty(text))
+            {
+                return result;
+            }
+
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                int space = line.IndexOf(' ');
+                if (space > 0)
+                {
+                    string packageId = line.Substring(0, space);
+                    string version = line.Substring(space + 1, line.Length - space - 1);
+                    result.Add(packageId, version);
+                }
+            }
+
+            return result;
         }
     }
 }

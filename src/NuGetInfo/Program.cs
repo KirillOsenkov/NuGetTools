@@ -13,13 +13,29 @@ namespace NuGetInfo
     {
         static void Main(string[] args)
         {
+            var cachePackages = PackageList.ReadFromCacheDirectory(@"\\Mac\Home\.nuget\packages");
+
             var nugetConfig = @"C:\vsmac\nuget.config";
             var packageSources = ParsePackageSources(nugetConfig)
                 .Where(IncludePackageSource)
                 .ToArray();
-            var packageId = "Microsoft.VisualStudio.Utilities";
-            var version = "16.7";
 
+            MapPackages(cachePackages, packageSources);
+
+            //var packageId = "Microsoft.VisualStudio.Utilities";
+            //var version = "16.7";
+            //FindPackageSourcesWithPackage(packageSources, packageId, version);
+
+            //CallNuGetExe(packageSources, packageId);
+        }
+
+        public static void MapPackages(PackageList cachePackages, string[] packageSources)
+        {
+
+        }
+
+        private static void FindPackageSourcesWithPackage(string[] packageSources, string packageId, string version)
+        {
             foreach (var source in packageSources)
             {
                 var versions = NuGetAPI.GetPackageVersions(source, packageId).Result.Where(v => v.ToString().Contains(version)).ToArray();
@@ -32,8 +48,6 @@ namespace NuGetInfo
                     }
                 }
             }
-
-            //CallNuGetExe(packageSources, packageId);
         }
 
         public static string[] excludeSources = new[]
