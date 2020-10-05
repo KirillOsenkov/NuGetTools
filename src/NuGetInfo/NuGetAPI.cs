@@ -41,7 +41,7 @@ class NuGetAPI
         return versions.ToArray();
     }
 
-    public static async Task<FindPackageByIdResource> GetPackageByIdResource(string url)
+    public static SourceRepository GetSourceRepository(string url)
     {
         try
         {
@@ -58,6 +58,24 @@ class NuGetAPI
             }
 
             SourceRepository repository = Repository.Factory.GetCoreV3(packageSource);
+            return repository;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static async Task<FindPackageByIdResource> GetPackageByIdResource(string url)
+    {
+        var repository = GetSourceRepository(url);
+        return await GetPackageByIdResource(repository);
+    }
+
+    public static async Task<FindPackageByIdResource> GetPackageByIdResource(SourceRepository repository)
+    {
+        try
+        {
             FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
             return resource;
         }

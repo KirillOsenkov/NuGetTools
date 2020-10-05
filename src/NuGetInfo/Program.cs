@@ -5,7 +5,13 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Linq;
+using NuGet.Common;
+using NuGet.Protocol;
+using NuGet.Protocol.Core.Types;
+using NuGet.Versioning;
 
 namespace NuGetInfo
 {
@@ -13,14 +19,18 @@ namespace NuGetInfo
     {
         static void Main(string[] args)
         {
-            var cachePackages = PackageList.ReadFromCacheDirectory(@"\\Mac\Home\.nuget\packages");
+            //var cachePackagesRaw = PackageList.ReadFromCacheDirectory(@"\\Mac\Home\.nuget\packages");
+            //var cacheText = cachePackagesRaw.SaveToText();
+            //File.WriteAllText("CachePackages.txt", cacheText);
+            var cacheText = File.ReadAllText("CachePackages.txt");
+            var cachePackages = PackageList.FromText(cacheText);
 
             var nugetConfig = @"C:\vsmac\nuget.config";
             var packageSources = ParsePackageSources(nugetConfig)
                 .Where(IncludePackageSource)
                 .ToArray();
 
-            MapPackages(cachePackages, packageSources);
+            MapPackages(cachePackages, packageSources).Wait();
 
             //var packageId = "Microsoft.VisualStudio.Utilities";
             //var version = "16.7";
@@ -29,9 +39,101 @@ namespace NuGetInfo
             //CallNuGetExe(packageSources, packageId);
         }
 
-        public static void MapPackages(PackageList cachePackages, string[] packageSources)
+        public static async Task MapPackages(PackageList cachePackages, string[] packageSources)
         {
+            List<(string packageId, string version, string source)> mapping = new List<(string packageId, string version, string source)>();
+            Dictionary<(string packageId, string version), List<string>> sourcesForPackage = new Dictionary<(string packageId, string version), List<string>>();
+            PackageList packagesNotFound = new PackageList();
+            Dictionary<string, PackageList> uniquePackagesInSource = new Dictionary<string, PackageList>();
 
+            void ClaimPackageVersion(string packageId, string version, string packageSource)
+            {
+                mapping.Add((packageId, version, packageId));
+                var key = (packageId, version);
+                if (!sourcesForPackage.TryGetValue(key, out var bucket))
+                {
+                    bucket = new List<string>();
+                    sourcesForPackage[key] = bucket;
+                }
+
+                bucket.Add(packageSource);
+            }
+
+            foreach (var source in packageSources)
+            {
+                var repository = NuGetAPI.GetSourceRepository(source);
+                var listApi = await repository.GetResourceAsync<ListResource>();
+                var packageExistApi = await repository.GetResourceAsync<FindPackageByIdResource>();
+
+                HashSet<string> idsInSource = null;
+
+                if (listApi != null && IncludePackageSource(source))
+                {
+                    var idsInSourceResult = await listApi.ListAsync(
+                        null,
+                        prerelease: true,
+                        allVersions: false,
+                        includeDelisted: true,
+                        NullLogger.Instance,
+                        CancellationToken.None);
+
+                    var enumerator = idsInSourceResult.GetEnumeratorAsync();
+
+                    idsInSource = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    while (await enumerator.MoveNextAsync())
+                    {
+                        var current = enumerator.Current;
+                        idsInSource.Add(current.Identity.Id);
+                    }
+                }
+
+                foreach (var packageIds in cachePackages.Packages)
+                {
+                    if (idsInSource != null && !idsInSource.Contains(packageIds.Key))
+                    {
+                        continue;
+                    }
+
+                    var packageId = packageIds.Key;
+                    foreach (var version in packageIds.Value.OrderBy(s => s))
+                    {
+                        var exists = await packageExistApi.DoesPackageExistAsync(packageId, NuGetVersion.Parse(version), NuGetAPI.Cache, NullLogger.Instance, CancellationToken.None);
+                        if (exists)
+                        {
+                            ClaimPackageVersion(packageId, version, source);
+                        }
+                    }
+                }
+            }
+
+            foreach (var kvp in sourcesForPackage)
+            {
+                if (kvp.Value.Count == 0)
+                {
+                    packagesNotFound.Add(kvp.Key.packageId, kvp.Key.version);
+                    Output($"Package not found in any of the sources: {kvp.Key.packageId} {kvp.Key.version}");
+                }
+                else if (kvp.Value.Count == 1)
+                {
+                    var singleSource = kvp.Value[0];
+                    if (!uniquePackagesInSource.TryGetValue(singleSource, out var bucket))
+                    {
+                        bucket = new PackageList();
+                        uniquePackagesInSource[singleSource] = bucket;
+                    }
+
+                    bucket.Add(kvp.Key.packageId, kvp.Key.version);
+                }
+            }
+
+            foreach (var source in packageSources)
+            {
+                if (!uniquePackagesInSource.ContainsKey(source))
+                {
+                    Output($"Redundant package source: {source}");
+                }
+            }
         }
 
         private static void FindPackageSourcesWithPackage(string[] packageSources, string packageId, string version)

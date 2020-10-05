@@ -88,5 +88,10 @@ namespace NuGetInfo
 
             return result;
         }
+
+        public override string ToString()
+        {
+            return $"{packageVersions.Count} package ids";
+        }
     }
 }
