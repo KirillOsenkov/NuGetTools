@@ -30,6 +30,28 @@ class NuGetAPI
         return Array.Empty<NuGetVersion>();
     }
 
+    public static async Task<bool> DoesPackageExist(string url, string packageId, string version)
+    {
+        try
+        {
+            var resource = await GetPackageByIdResource(url);
+            if (resource != null)
+            {
+                return await resource.DoesPackageExistAsync(
+                    packageId,
+                    NuGetVersion.Parse(version),
+                    Cache,
+                    NullLogger.Instance,
+                    CancellationToken.None);
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
     public static async Task<IEnumerable<NuGetVersion>> GetPackageVersions(FindPackageByIdResource resource, string packageId) 
     {
         IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
