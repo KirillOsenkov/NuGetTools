@@ -27,16 +27,18 @@ namespace NuGetInfo
 
             var nugetConfig = @"C:\vsmac\nuget.config";
             var packageSources = ParsePackageSources(nugetConfig)
-                .Where(IncludePackageSource)
+                //.Where(IncludePackageSource)
                 .ToArray();
 
-            MapPackages(cachePackages, packageSources).Wait();
+            //MapPackages(cachePackages, packageSources).Wait();
 
-            //var packageId = "Microsoft.VisualStudio.Utilities";
-            //var version = "16.7";
-            //FindPackageSourcesWithPackage(packageSources, packageId, version);
+            var packageId = "Microsoft.VisualStudio.CodingConventions";
+            var version = "1.1.20180528.2";
+            FindPackageSourcesWithPackage(packageSources, packageId, version);
 
             //CallNuGetExe(packageSources, packageId);
+
+            FlushOutput();
         }
 
         public static async Task MapPackages(PackageList cachePackages, string[] packageSources)
@@ -140,6 +142,12 @@ namespace NuGetInfo
         {
             foreach (var source in packageSources)
             {
+                bool exists = NuGetAPI.DoesPackageExist(source, packageId, version).Result;
+                if (!exists)
+                {
+                    continue;
+                }
+
                 var versions = NuGetAPI.GetPackageVersions(source, packageId).Result.Where(v => v.ToString().Contains(version)).ToArray();
                 if (versions.Any())
                 {
@@ -282,9 +290,18 @@ namespace NuGetInfo
             return source;
         }
 
+        private static readonly StringBuilder sb = new StringBuilder();
+
+        private static void FlushOutput()
+        {
+            var text = sb.ToString();
+            File.WriteAllText("log.txt", text);
+        }
+
         private static void Output(string line)
         {
             Console.WriteLine(line);
+            sb.AppendLine(line);
         }
 
         private static IEnumerable<string> ParsePackageSources(string nugetConfig)
