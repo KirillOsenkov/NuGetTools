@@ -94,6 +94,35 @@ class NuGetAPI
         return await GetPackageByIdResource(repository);
     }
 
+    public static string GetPackageDescription(string url, string packageId, string version)
+    {
+        var repository = GetSourceRepository(url);
+        var resource = GetPackageMetadataResource(repository);
+        var metadata = resource.Result.GetMetadataAsync(
+            packageId,
+            includePrerelease: true,
+            includeUnlisted: true,
+            Cache,
+            NullLogger.Instance,
+            CancellationToken.None).Result;
+        var first = metadata.FirstOrDefault();
+        var description = first.Description;
+        return description;
+    }
+
+    public static async Task<PackageMetadataResource> GetPackageMetadataResource(SourceRepository repository)
+    {
+        try
+        {
+            var resource = await repository.GetResourceAsync<PackageMetadataResource>();
+            return resource;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static async Task<FindPackageByIdResource> GetPackageByIdResource(SourceRepository repository)
     {
         try

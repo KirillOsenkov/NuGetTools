@@ -19,26 +19,41 @@ namespace NuGetInfo
     {
         static void Main(string[] args)
         {
+            var feedUrl = "https://api.nuget.org/v3/index.json";
+            var packageId = "Newtonsoft.Json";
+            var version = "13.0.1";
+
+            var result = NuGetAPI.GetPackageDescription(feedUrl, packageId, version);
+
+            // get all versions
+            //var result = NuGetAPI.GetPackageVersions(feedUrl, packageId).Result;
+
+            // does it exist?
+            //var task = NuGetAPI.DoesPackageExist(feedUrl, packageId, version).Result;
+        }
+
+        static void Junk()
+        {
             //var cachePackagesRaw = PackageList.ReadFromCacheDirectory(@"\\Mac\Home\.nuget\packages");
             //var cacheText = cachePackagesRaw.SaveToText();
             //File.WriteAllText("CachePackages.txt", cacheText);
-            var cacheText = File.ReadAllText("CachePackages.txt");
-            var cachePackages = PackageList.FromText(cacheText);
+            //var cacheText = File.ReadAllText("CachePackages.txt");
+            //var cachePackages = PackageList.FromText(cacheText);
 
-            var nugetConfig = @"C:\vsmac\nuget.config";
-            var packageSources = ParsePackageSources(nugetConfig)
-                //.Where(IncludePackageSource)
-                .ToArray();
+            //var nugetConfig = @"C:\vsmac\nuget.config";
+            //var packageSources = ParsePackageSources(nugetConfig)
+            //    //.Where(IncludePackageSource)
+            //    .ToArray();
 
-            //MapPackages(cachePackages, packageSources).Wait();
+            ////MapPackages(cachePackages, packageSources).Wait();
 
-            var packageId = "Microsoft.VisualStudio.CodingConventions";
-            var version = "1.1.20180528.2";
-            FindPackageSourcesWithPackage(packageSources, packageId, version);
+            //var packageId = "Microsoft.VisualStudio.CodingConventions";
+            //var version = "1.1.20180528.2";
+            //FindPackageSourcesWithPackage(packageSources, packageId, version);
 
-            //CallNuGetExe(packageSources, packageId);
+            ////CallNuGetExe(packageSources, packageId);
 
-            FlushOutput();
+            //FlushOutput();
         }
 
         public static async Task MapPackages(PackageList cachePackages, string[] packageSources)
