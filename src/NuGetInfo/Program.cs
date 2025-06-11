@@ -19,17 +19,57 @@ namespace NuGetInfo
     {
         static void Main(string[] args)
         {
-            var feedUrl = "https://api.nuget.org/v3/index.json";
-            var packageId = "Newtonsoft.Json";
-            var version = "13.0.1";
+            DeleteExistingPackages(@"C:\Ide\lib", "https://kirillosenkov.pkgs.visualstudio.com/Public/_packaging/ide1/nuget/v3/index.json").Wait();
 
-            var result = NuGetAPI.GetPackageDescription(feedUrl, packageId, version);
+            //var feedUrl = "https://api.nuget.org/v3/index.json";
+            //var packageId = "Newtonsoft.Json";
+            //var version = "13.0.1";
+
+            //var result = NuGetAPI.GetPackageDescription(feedUrl, packageId, version);
 
             // get all versions
             //var result = NuGetAPI.GetPackageVersions(feedUrl, packageId).Result;
 
             // does it exist?
             //var task = NuGetAPI.DoesPackageExist(feedUrl, packageId, version).Result;
+        }
+
+        public static async Task DeleteExistingPackages(string directory, string feed)
+        {
+            var list = new List<string>();
+
+            var resource = await NuGetAPI.GetPackageByIdResource(feed);
+            if (resource == null)
+            {
+                return;
+            }
+
+            foreach (var packageFile in Directory.GetFiles(directory, "*.nupkg"))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(packageFile);
+                var parts = fileName.Split('.');
+                var packageId = string.Join('.', parts.Take(parts.Length - 3));
+                var packageVersion = string.Join('.', parts.Skip(parts.Length - 3));
+                bool exists = false;
+                try
+                {
+                    exists = await resource.DoesPackageExistAsync(
+                        packageId,
+                        NuGetVersion.Parse(packageVersion),
+                        NuGetAPI.Cache,
+                        ConsoleLogger.Instance,
+                        CancellationToken.None);
+                }
+                catch
+                {
+                }
+
+                if (exists)
+                {
+                    Console.WriteLine($"Deleting {packageFile}");
+                    File.Delete(packageFile);
+                }
+            }
         }
 
         static void Junk()
